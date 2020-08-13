@@ -1,4 +1,4 @@
-<img align="right" width="110" src="https://imgup.qii404.xyz/ardm_icon.png">
+<img align="right" width="110" src="https://imgup.qii404.xyz/github/ardm-new-icon.png">
 
 # Another Redis DeskTop Manager
 
@@ -19,18 +19,22 @@ Download latest `exe` package from [release](https://github.com/qishibo/AnotherR
 
 ## Linux
 
-Download latest `AppImage` package from [release](https://github.com/qishibo/AnotherRedisDesktopManager/releases) [or [gitee](https://gitee.com/qishibo/AnotherRedisDesktopManager/releases) in China], double click to run. Or `./xxx.AppImage`.
+Download latest `AppImage` package from [release](https://github.com/qishibo/AnotherRedisDesktopManager/releases) [or [gitee](https://gitee.com/qishibo/AnotherRedisDesktopManager/releases) in China], `chmod +x`, double click to run.
 
 ## Mac
 
 Download latest `dmg` package from [release](https://github.com/qishibo/AnotherRedisDesktopManager/releases) [or [gitee](https://gitee.com/qishibo/AnotherRedisDesktopManager/releases) in China], double click to install.
 <br/>Or by **brew**: `brew cask install another-redis-desktop-manager`
+<br/>Or **sponsor** by app store, It's not free, and I will be very grateful to you. 
+<br/>[![app store](https://imgup.qii404.xyz/github/download_from_app_store.png)](https://apps.apple.com/app/id1516451072)
 
+<!--
 > If **Mac** warning `Another Desktop Manager can't be opened because it is from an unidentified developer`. Open `Settings->Security` and click **`Open Anyway`**
 
 ![can't be opened because it is from an unidentified developer](https://imgup.qii404.xyz/mac-warning.png)
 
 ![Settings->Security Open Anyway](https://imgup.qii404.xyz/blog/5d11c4feeaf6f.jpg)
+-->
 
 ## Enjoy!
 
@@ -47,6 +51,7 @@ Download latest `dmg` package from [release](https://github.com/qishibo/AnotherR
 
 ## Feature Log
 
+- 2020-06-18: SSL/TLS Support!!!
 - 2020-04-28: Page Zoom && Big Key Loads With Scan && Auto Json
 - 2020-04-18: Unvisible Key\Value Format Support
 - 2020-04-04: Cluster Support!!!
@@ -136,6 +141,27 @@ npm run pack:mac
 # on linux
 npm run pack:linux
 ```
+
+## Sponsor
+
+- Give me a star ⭐!
+- Through [OpenCollective](https://opencollective.com/AnotherRedisDesktopManager)
+- Through [Paypal](https://www.paypal.me/qii404)
+- If you are a Mac user, you can purchase this software from the [app store](https://apps.apple.com/app/id1516451072) to sponsor, and then let the app store automatically update it for you.
+
+  [![app store](https://imgup.qii404.xyz/github/download_from_app_store.png)](https://apps.apple.com/app/id1516451072)
+- Wechat sponsor code
+
+  <img width="150px" src="https://imgup.qii404.xyz/github/wechat_sponsor_code.jpg" />
+
+
+## Contributors
+
+This project exists thanks to all the people who contribute.
+[![contributors](https://opencollective.com/AnotherRedisDesktopManager/contributors.svg?width=890&button=false)](https://github.com/qishibo/AnotherRedisDesktopManager/graphs/contributors)
+[![backers](https://opencollective.com/AnotherRedisDesktopManager/backers.svg)](https://opencollective.com/AnotherRedisDesktopManager)
+
+
 
 ## License
 

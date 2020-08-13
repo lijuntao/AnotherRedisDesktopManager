@@ -1,7 +1,7 @@
 <template>
-  <el-dialog :title="dialogTitle" :visible.sync="dialogVisible" :append-to-body='true'>
+  <el-dialog :title="dialogTitle" :visible.sync="dialogVisible" :append-to-body='true' :close-on-click-modal='false'>
     <!-- redis connection form -->
-    <el-form :label-position="labelPosition" label-width="80px">
+    <el-form :label-position="labelPosition" label-width="90px">
       <el-form-item label="Host">
         <el-input v-model="connection.host" autocomplete="off" placeholder="127.0.0.1"></el-input>
       </el-form-item>
@@ -11,7 +11,7 @@
       </el-form-item>
 
       <el-form-item label="Auth">
-        <el-input v-model="connection.auth" autocomplete="off"></el-input>
+        <el-input v-model="connection.auth" type='password' autocomplete="off"></el-input>
       </el-form-item>
 
       <el-form-item label="Name">
@@ -20,6 +20,7 @@
 
       <el-form-item label="">
         <el-checkbox v-model="sshOptionsShow">SSH Tunnel</el-checkbox>
+        <el-checkbox v-model="sslOptionsShow">SSL</el-checkbox>
         <el-checkbox v-model="connection.cluster">Cluster</el-checkbox>
         <el-popover trigger="hover">
           <i slot="reference" class="el-icon-question"></i>
@@ -28,7 +29,7 @@
       </el-form-item>
 
       <!-- ssh connection form -->
-      <el-form v-if="sshOptionsShow" v-show="sshOptionsShow" label-width="80px">
+      <el-form v-if="sshOptionsShow" v-show="sshOptionsShow" label-width="90px">
         <el-form-item label="Host">
           <el-input v-model="connection.sshOptions.host" autocomplete="off"></el-input>
         </el-form-item>
@@ -42,15 +43,29 @@
         </el-form-item>
 
         <el-form-item label="Password">
-          <el-input v-model="connection.sshOptions.password" autocomplete="off"></el-input>
+          <el-input v-model="connection.sshOptions.password" type='password' autocomplete="off"></el-input>
         </el-form-item>
 
         <el-form-item label="PrivateKey">
           <el-tooltip effect="dark">
             <div slot="content" v-html="$t('message.private_key_faq')"></div>
-            <el-input v-if='connection.sshOptions.privatekey' v-model='connection.sshOptions.privatekey' clearable autocomplete="off" ></el-input>
-            <el-input v-else id='private-key-path' type='file' @change='changePrivateKey'></el-input>
+            <FileInput :file.sync='connection.sshOptions.privatekey' placeholder='SSH Private Key'></FileInput>
           </el-tooltip>
+        </el-form-item>
+      </el-form>
+
+      <!-- SSL connection form -->
+      <el-form v-if="sslOptionsShow" v-show="sslOptionsShow" label-width="90px">
+        <el-form-item label="PrivateKey">
+          <FileInput :file.sync='connection.sslOptions.key' placeholder='SSL Private Key Pem (key)'></FileInput>
+        </el-form-item>
+
+        <el-form-item label="PublicKey">
+          <FileInput :file.sync='connection.sslOptions.cert' placeholder='SSL Public Key Pem (cert)'></FileInput>
+        </el-form-item>
+
+        <el-form-item label="Authority">
+          <FileInput :file.sync='connection.sslOptions.ca' placeholder='SSL Certificate Authority (CA)'></FileInput>
         </el-form-item>
       </el-form>
     </el-form>
@@ -64,6 +79,7 @@
 
 <script type="text/javascript">
 import storage from '@/storage';
+import FileInput from '@/components/FileInput';
 
 export default {
   data() {
@@ -83,11 +99,18 @@ export default {
           username: '',
           password: '',
           privatekey: '',
+        },
+        sslOptions: {
+          key: '',
+          cert: '',
+          ca: '',
         }
       },
       sshOptionsShow: false,
+      sslOptionsShow: false,
     }
   },
+  components: {FileInput},
   props: ['config', 'editMode'],
   computed: {
     dialogTitle() {
@@ -106,24 +129,23 @@ export default {
         delete config.sshOptions;
       }
 
+      if (!this.sslOptionsShow) {
+        delete config.sslOptions;
+      }
+
       storage.editConnectionByKey(config, this.oldKey);
 
       this.dialogVisible = false;
       this.$emit('editConnectionFinished');
     },
-    changePrivateKey() {
-      const path = document.getElementById('private-key-path').files[0].path;
-      this.$set(this.connection.sshOptions, 'privatekey', path);
-    }
   },
   mounted() {
     if (this.editMode) {
-      const sshOptionsNew = this.connection.sshOptions;
-      this.connection = JSON.parse(JSON.stringify(this.config));
       this.oldKey = storage.getConnectionKey(this.config);
+      this.sslOptionsShow = !!this.config.sslOptions;
+      this.sshOptionsShow = !!this.config.sshOptions;
 
-      this.sshOptionsShow = !!this.connection.sshOptions;
-      !this.connection.sshOptions && (this.connection.sshOptions = sshOptionsNew);
+      this.connection = Object.assign({}, this.connection, this.config);
     }
 
     delete this.connection.connectionName;

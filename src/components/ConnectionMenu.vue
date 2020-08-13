@@ -21,8 +21,11 @@
       placement='bottom-start'
       :show-timeout=100
       :hide-timeout=300>
-      <i class="connection-right-icon el-icon-menu"></i>
+      <i class="connection-right-icon el-icon-menu" @click.stop></i>
       <el-dropdown-menu slot="dropdown">
+        <el-dropdown-item @click.native='closeConnection'>
+          <i class='el-icon-close'> {{ $t('message.close_connection') }}</i>
+        </el-dropdown-item>
         <el-dropdown-item @click.native='showEditConnection'>
           <i class='el-icon-edit-outline'> {{ $t('message.edit_connection') }}</i>
         </el-dropdown-item>
@@ -68,6 +71,14 @@ export default {
       ).then(() => {
         this.$bus.$emit('closeConnection');
         this.$refs.editConnectionDialog.dialogVisible = true;
+      }).catch(() => {});
+    },
+    closeConnection() {
+      this.$confirm(
+        this.$t('message.close_to_connection'),
+        { type: 'warning' },
+      ).then(() => {
+        this.$bus.$emit('closeConnection');
       }).catch(() => {});
     },
     editConnectionFinished() {
@@ -168,7 +179,7 @@ export default {
   }
   .connection-menu .connection-right-icon {
     display: inline-block;
-    font-size: 1.2em;
+    font-size: 1.16em;
     /*font-weight: bold;*/
     padding: 3px;
     margin-right: -4px;
