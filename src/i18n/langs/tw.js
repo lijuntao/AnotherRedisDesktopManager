@@ -32,6 +32,7 @@ const tw = {
     click_enter_to_rename: '點擊或者按 Enter 鍵來重新命名',
     click_enter_to_ttl: '點擊或者按 Enter 鍵來修改過期時間',
     confirm_to_delete_key: '確認刪除 {key} ？',
+    confirm_to_rename_key: '確認重命名 {old} -> {new} ？',
     edit_line: '修改行',
     auto_refresh: '自動重新整理',
     auto_refresh_tip: '自動重新整理開關，每 {interval} 秒重新整理一次',
@@ -98,6 +99,7 @@ const tw = {
     info_disabled: 'Info命令執行異常（可能已被禁用），無法顯示Redis訊息',
     page_zoom: '頁面縮放',
     scan_disabled: 'Scan命令執行異常（可能已被禁用），無法顯示key列表',
+    key_type_not_support: '該類型暫不支持視覺化展示，請使用Console',
   },
 };
 

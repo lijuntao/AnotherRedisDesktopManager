@@ -32,6 +32,7 @@ const cn = {
     click_enter_to_rename: '点击或者按Enter键来重命名',
     click_enter_to_ttl: '点击或者按Enter键来修改过期时间',
     confirm_to_delete_key: '确认删除 {key} ?',
+    confirm_to_rename_key: '确认重命名 {old} -> {new} ?',
     edit_line: '修改行',
     auto_refresh: '自动刷新',
     auto_refresh_tip: '自动刷新开关，每{interval}秒刷新一次',
@@ -98,6 +99,7 @@ const cn = {
     info_disabled: 'Info命令执行异常（可能已被禁用），无法显示Redis信息',
     page_zoom: '页面缩放',
     scan_disabled: 'Scan命令执行异常（可能已被禁用），无法显示Key列表',
+    key_type_not_support: '该类型暂不支持可视化展示，请使用命令行进行操作',
   },
 };
 
