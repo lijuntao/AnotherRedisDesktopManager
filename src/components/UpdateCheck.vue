@@ -39,9 +39,16 @@ export default {
       ipcRenderer.on('update-available', (event, arg) => {
         this.$notify.closeAll();
 
+        const ignoreUpdateKey = `IgnoreUpdateVersion_${arg.version}`;
+        // version ignored
+        if (!this.manual && localStorage[ignoreUpdateKey]) {
+          return this.resetDownloadProcess();
+        }
+
         this.$confirm(arg.releaseNotes, {
           title: `${this.$t('message.update_available')}: ${arg.version}`,
           confirmButtonText: this.$t('message.begin_update'),
+          cancelButtonText: this.$t('message.ignore_this_version'),
           dangerouslyUseHTMLString: true,
           duration: 0
         }).then(() => {
@@ -49,6 +56,8 @@ export default {
           this.manual = true;
           ipcRenderer.send('continue-update');
         }).catch(() => {
+          // ignore this version
+          localStorage[ignoreUpdateKey] = true;
           this.resetDownloadProcess();
         });
       });
@@ -86,8 +95,9 @@ export default {
         }
 
         this.$notify.error({
-          title: message,
-          duration: 0
+          message: message,
+          duration: 0,
+          dangerouslyUseHTMLString: true,
         });
       });
 

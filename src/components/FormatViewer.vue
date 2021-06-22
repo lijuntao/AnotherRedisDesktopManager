@@ -9,7 +9,9 @@
         :value="item.value">
       </el-option>
     </el-select>
-    <span v-if='!contentVisible' class='formater-binary-tag'>Hex</span>
+    <span @click='copyContent' :title='$t("message.copy")' class='el-icon-document formater-copy-icon'></span>
+    <span v-if='!contentVisible' class='formater-binary-tag'>[Hex]</span>
+    <span class='formater-binary-tag'>Size: {{ $util.humanFileSize(buffSize) }}</span>
     <br>
 
     <component
@@ -18,6 +20,7 @@
       :content='content'
       :contentVisible='contentVisible'
       :textrows='textrows'
+      :disabled='disabled'
       @updateContent="$emit('update:content', $event)">
     </component>
   </div>
@@ -25,9 +28,11 @@
 
 <script type="text/javascript">
 import ViewerText from '@/components/ViewerText';
+import ViewerHex from '@/components/ViewerHex';
 import ViewerJson from '@/components/ViewerJson';
 import ViewerBinary from '@/components/ViewerBinary';
 import ViewerUnserialize from '@/components/ViewerUnserialize';
+import ViewerMsgpack from '@/components/ViewerMsgpack';
 
 export default {
   data() {
@@ -35,8 +40,10 @@ export default {
       selectedView: '',
       viewers: [
         { value: 'ViewerText', text: 'Text' },
+        { value: 'ViewerHex', text: 'Hex' },
         { value: 'ViewerJson', text: 'Json' },
         { value: 'ViewerBinary', text: 'Binary' },
+        { value: 'ViewerMsgpack', text: 'Msgpack' },
         { value: 'ViewerUnserialize', text: 'Unserialize' },
       ],
       selectStyle: {
@@ -44,15 +51,19 @@ export default {
       },
     };
   },
-  components: {ViewerText, ViewerJson, ViewerBinary, ViewerUnserialize},
+  components: {ViewerText, ViewerHex, ViewerJson, ViewerBinary, ViewerUnserialize, ViewerMsgpack},
   props: {
     float: {default: 'right'},
     content: {default: () => Buffer.from('')},
     textrows: {default: 6},
+    disabled: {type: Boolean, default: false},
   },
   computed: {
     contentVisible() {
       return this.$util.bufVisible(this.content);
+    },
+    buffSize() {
+      return Buffer.byteLength(this.content);
     },
   },
   methods: {
@@ -62,17 +73,30 @@ export default {
 
       this.$nextTick(() => {
         if (!this.content) {
-          this.selectedView = 'ViewerText';
-          return;
+          return this.selectedView = 'ViewerText';
         }
 
+        // json
         if (this.$util.isJson(this.content)) {
           this.selectedView = 'ViewerJson';
+        }
+        // php unserialize
+        else if (this.$util.isPHPSerialize(this.content)) {
+          this.selectedView = 'ViewerUnserialize';
+        }
+        // hex
+        else if (!this.contentVisible) {
+          this.selectedView = 'ViewerHex'
         }
         else {
           this.selectedView = 'ViewerText';
         }
       });
+    },
+    copyContent() {
+      const clipboard = require('electron').clipboard;
+      clipboard.writeText(this.content.toString());
+      this.$message.success(this.$t('message.copy_success'));
     },
   },
 }
@@ -92,6 +116,9 @@ export default {
     padding: 5px 15px;
     line-height: 1.5;
     border-radius: 5px;
+  }
+  .text-formated-container * {
+    font-family: inherit !important;
   }
   .dark-mode .text-formated-container {
     border-color: #7f8ea5;
@@ -124,5 +151,9 @@ export default {
     /*padding-left: 5px;*/
     color: #7ab3ef;
     font-size: 80%;
+  }
+  .formater-copy-icon {
+    color: #7ab3ef;
+    cursor: pointer;
   }
 </style>

@@ -11,6 +11,7 @@
         slot="title"
         :config="config"
         :client='client'
+        @changeColor='setColor'
         @refreshConnection='openConnection()'>
       </ConnectionMenu>
 
@@ -23,6 +24,8 @@
       <!-- key list -->
       <KeyList
         ref='keyList'
+        :config="config"
+        :globalSettings='globalSettings'
         :client='client'>
       </KeyList>
     </el-submenu>
@@ -41,7 +44,7 @@ export default {
       client: null,
     };
   },
-  props: ['config'],
+  props: ['config', 'globalSettings'],
   components: {ConnectionMenu, OperateItem, KeyList},
   created() {
     this.$bus.$on('closeConnection', (connectionName = false) => {
@@ -134,14 +137,39 @@ export default {
 
       return clientPromise;
     },
+    setColor(color, save = true) {
+      const ulDom = this.$refs.connectionMenu.$el;
+      const className = 'menu-with-custom-color';
+
+      // save to setting
+      save && this.$storage.editConnectionItem(this.config, {color: color});
+
+      if (!color) {
+        ulDom.classList.remove(className);
+      }
+      else {
+        ulDom.classList.add(className);
+        this.$el.style.setProperty("--menu-color", color);
+      }
+    },
+  },
+  mounted() {
+    this.setColor(this.config.color, false);
   },
 }
 </script>
 
 <style type="text/css">
+  /*menu ul*/
   .connection-menu {
-    margin-top: 10px;
+    margin-top: 9px;
     padding-right: 6px;
     border-right: 0;
+  }
+
+  .connection-menu.menu-with-custom-color li.el-submenu {
+    border-left: 5px solid var(--menu-color);
+    border-radius: 4px 0 0 4px;
+    padding-left: 3px;
   }
 </style>

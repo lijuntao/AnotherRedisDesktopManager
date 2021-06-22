@@ -27,7 +27,7 @@
     </el-form-item>
 
     <!-- search match -->
-    <el-form-item class="search-item">
+    <!-- <el-form-item class="search-item">
       <el-row>
         <el-col :span="24">
           <el-input class="search-input" v-model="searchMatch" @keyup.enter.native="changeMatchMode()" :placeholder="$t('message.enter_to_search')" size="mini">
@@ -41,6 +41,28 @@
           </el-input>
         </el-col>
       </el-row>
+    </el-form-item> -->
+
+    <!-- autocomplete search input -->
+    <el-form-item class="search-item">
+      <el-autocomplete
+        class="search-input"
+        v-model="searchMatch"
+        @select="changeMatchMode"
+        @keyup.enter="changeMatchMode()"
+        :debounce="searchDebounce"
+        :fetch-suggestions="querySearch"
+        :placeholder="$t('message.enter_to_search')"
+        :trigger-on-focus="false"
+        :select-when-unmatched='true'>
+        <span slot="suffix">
+          <i class="el-input__icon search-icon" :class="searchIcon"  @click="changeMatchMode()"></i>
+
+          <el-tooltip effect="dark" :content="$t('message.exact_search')" placement="bottom">
+            <el-checkbox v-model="searchExact"></el-checkbox>
+          </el-tooltip>
+        </span>
+      </el-autocomplete>
     </el-form-item>
 
     <!-- new key dialog -->
@@ -79,11 +101,14 @@ export default {
       searchMatch: '',
       searchExact: false,
       searchIcon: 'el-icon-search',
+      searchHistory: new Set(),
+      searchDebounce: 100,
       newKeyDialog: false,
       newKeyName: '',
       selectedNewKeyType: 'string',
       newKeyTypes: {
         String: 'string', Hash: 'hash', List: 'list', Set: 'set', Zset: 'zset',
+        Stream: 'stream',
       },
     };
   },
@@ -176,16 +201,19 @@ export default {
           return this.client.set(key, '');
         }
         case 'hash': {
-          return this.client.hset(key, 'field', 'value');
+          return this.client.hset(key, 'New field', 'New value');
         }
         case 'list': {
-          return this.client.lpush(key, 'value');
+          return this.client.lpush(key, 'New member');
         }
         case 'set': {
-          return this.client.sadd(key, 'value');
+          return this.client.sadd(key, 'New member');
         }
         case 'zset': {
-          return this.client.zadd(key, 0, 'member');
+          return this.client.zadd(key, 0, 'New member');
+        }
+        case 'stream': {
+          return this.client.xadd(key, '*', 'New key', 'New value');
         }
       }
     },
@@ -195,7 +223,27 @@ export default {
         return false;
       }
 
+      // prevent enter too fast but show candidate query
+      setTimeout(() => {
+        this.searchHistory.add(this.searchMatch);
+      }, this.searchDebounce + 100);
+
       this.$parent.$parent.$parent.$refs.keyList.refreshKeyList();
+    },
+    querySearch(input, cb) {
+      const items = [];
+
+      if (!this.searchHistory.size) {
+        return cb([]);
+      }
+
+      this.searchHistory.forEach(value => {
+        if (value.toLowerCase().indexOf(input.toLowerCase()) !== -1) {
+          items.push({value: value});
+        }
+      });
+
+      cb(items);
     },
   },
 }
@@ -217,6 +265,9 @@ export default {
     margin-top: -10px;
     margin-bottom: 15px;
   }
+  .connection-menu .search-input {
+    width: 100%;
+  }
   .connection-menu .search-input .el-input__inner {
     padding-right: 43px;
     /*margin-top: -10px;;
@@ -228,10 +279,11 @@ export default {
     top: 54%;
   }
   .connection-menu .el-submenu [class^=el-icon-] {
-    font-size: 13px;
+    font-size: 12px;
     margin: 0px;
     width: auto;
-    color: grey;
+    /*color: grey;*/
+    vertical-align: baseline;
   }
 
   .connection-menu .el-submenu.is-opened {

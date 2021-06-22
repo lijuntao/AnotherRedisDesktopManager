@@ -1,7 +1,18 @@
 import Redis from 'ioredis';
 import tunnelssh from 'tunnel-ssh';
 import vue from '@/main.js';
+import {remote} from 'electron';
 const fs = require('fs');
+
+// fix ioredis hgetall key has been toString()
+Redis.Command.setReplyTransformer("hgetall", (result) => {
+  let arr = [];
+  for (let i = 0; i < result.length; i += 2) {
+    arr.push([result[i], result[i + 1]]);
+  }
+
+  return arr;
+});
 
 
 export default {
@@ -33,13 +44,12 @@ export default {
       password: sshOptions.password,
       host: sshOptions.host,
       port: sshOptions.port,
-      readyTimeout: 20000,
+      readyTimeout: (sshOptions.timeout) > 0 ? (sshOptions.timeout * 1000) : 30000,
       dstHost: host,
       dstPort: port,
       localHost: '127.0.0.1',
       localPort: null, // set null to use available port in local machine
-      privateKey: sshOptions.privatekey ?
-                  fs.readFileSync(sshOptions.privatekey) : undefined,
+      privateKey: this.getFileContent(sshOptions.privatekey, sshOptions.privatekeybookmark),
       passphrase: sshOptions.passphrase ? sshOptions.passphrase : undefined,
       keepaliveInterval: 10000,
     };
@@ -103,7 +113,7 @@ export default {
 
   getRedisOptions(host, port, auth, config) {
     return {
-      connectTimeout: 20000,
+      connectTimeout: 30000,
       retryStrategy: (times) => {return this.retryStragety(times, {host, port})},
       enableReadyCheck: false,
       connectionName: config.connectionName ? config.connectionName : null,
@@ -116,7 +126,7 @@ export default {
     return {
       connectionName: redisOptions.connectionName,
       enableReadyCheck: false,
-      slotsRefreshTimeout: 20000,
+      slotsRefreshTimeout: 30000,
       redisOptions: redisOptions,
       natMap: natMap,
     };
@@ -194,9 +204,12 @@ export default {
 
   getTLSOptions(options) {
     return {
-      ca: options.ca ? fs.readFileSync(options.ca) : '',
-      key: options.key ? fs.readFileSync(options.key) : '',
-      cert: options.cert ? fs.readFileSync(options.cert) : '',
+      // ca: options.ca ? fs.readFileSync(options.ca) : '',
+      // key: options.key ? fs.readFileSync(options.key) : '',
+      // cert: options.cert ? fs.readFileSync(options.cert) : '',
+      ca: this.getFileContent(options.ca, options.cabookmark),
+      key: this.getFileContent(options.key, options.keybookmark),
+      cert: this.getFileContent(options.cert, options.certbookmark),
 
       checkServerIdentity: (servername, cert) => {
         // skip certificate hostname validation
@@ -218,4 +231,30 @@ export default {
     // reconnect after
     return Math.min(times * 200, 1000);
   },
+
+  getFileContent(file, bookmark = '') {
+    if (!file) {
+      return undefined;
+    }
+
+    try {
+      // mac app store version, read through bookmark
+      if (bookmark) {
+        const bookmarkClose = remote.app.startAccessingSecurityScopedResource(bookmark);
+      }
+
+      const content = fs.readFileSync(file);
+      (typeof bookmarkClose == 'function') && bookmarkClose();
+
+      return content;
+    }
+    catch (e) {
+      // force alert
+      alert(vue.$t('message.key_no_permission') + `\n[${e.message}]`);
+      vue.$bus.$emit('closeConnection');
+
+      return undefined;
+    }
+  },
 };
+

@@ -14,6 +14,7 @@
 
 <script type="text/javascript">
 import JsonViewer from 'vue-json-viewer'
+import {decode} from "@msgpack/msgpack";
 
 export default {
   data() {
@@ -28,13 +29,9 @@ export default {
   computed: {
     newContent() {
       try {
-        // change bigint to string
-        let JSONbig = require('json-bigint')({storeAsString: true});
-        let jsonSolved = JSONbig.stringify(JSONbig.parse(this.content));
-
-        return JSON.parse(jsonSolved);
+        return decode(this.content);
       } catch (e) {
-        return this.$t('message.json_format_failed');
+        return this.$t('message.msgpack_format_failed');
       }
     },
   },

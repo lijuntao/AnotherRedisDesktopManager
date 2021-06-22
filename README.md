@@ -1,13 +1,13 @@
 <img align="right" width="110" src="https://imgup.qii404.xyz/github/ardm-new-icon.png">
 
-# Another Redis DeskTop Manager
+# Another Redis Desktop Manager
 
 <hr/>
 
 > 🚀🚀🚀 A faster, better and more stable redis desktop manager, compatible with Linux, windows, mac. What's more, it won't crash when loading a large number of keys.
 
 [![MIT](https://img.shields.io/badge/license-MIT-000000.svg)](LICENSE)
-[![Download](https://img.shields.io/github/release/qishibo/AnotherRedisDeskTopManager.svg?label=Download)](https://github.com/qishibo/AnotherRedisDesktopManager/releases)
+[![Download](https://img.shields.io/github/release/qishibo/AnotherRedisDesktopManager.svg?label=Download)](https://github.com/qishibo/AnotherRedisDesktopManager/releases)
 [![Download Analysis](https://img.shields.io/badge/Download-Analysis-blue.svg)](https://qii404.me/github-release-statistics/?repo=/qishibo/AnotherRedisDesktopManager/)
 [![shiboooo](https://img.shields.io/badge/Weibo-@shiboooo-red.svg)](https://weibo.com/shiboooo?is_hot=1)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fqishibo%2FAnotherRedisDesktopManager.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fqishibo%2FAnotherRedisDesktopManager?ref=badge_shield)
@@ -24,7 +24,7 @@ Download latest [AppImage](https://github.com/qishibo/AnotherRedisDesktopManager
 ## Mac
 
 - Download latest [dmg](https://github.com/qishibo/AnotherRedisDesktopManager/releases) package from [release](https://github.com/qishibo/AnotherRedisDesktopManager/releases) [or [gitee](https://gitee.com/qishibo/AnotherRedisDesktopManager/releases) in China], double click to install.
-- Or by **brew**: `brew cask install another-redis-desktop-manager`
+- Or by **brew**: `brew install --cask another-redis-desktop-manager`
 - Or **sponsor** by app store, It's not free, and I will be very grateful to you.
 <br/>[![app store](https://imgup.qii404.xyz/github/download_from_app_store.png)](https://apps.apple.com/app/id1516451072)
 
@@ -38,19 +38,22 @@ Download latest [AppImage](https://github.com/qishibo/AnotherRedisDesktopManager
 
 ## Enjoy!
 
-![redis status dark](https://imgup.qii404.xyz/github/20200313141641.jpg)
-![redis status](https://imgup.qii404.xyz/github/20200313141504.jpg)
+![redis status dark](https://imgup.qii404.xyz/github/20210203/status.jpg)
+<!-- ![redis status](https://imgup.qii404.xyz/github/20210203/statusl.jpg) -->
 
 
-![redis key hash dark](https://imgup.qii404.xyz/github/20200313141719.jpg)
-![redis key hash](https://imgup.qii404.xyz/github/20200313141610.jpg)
+![redis key hash dark](https://imgup.qii404.xyz/github/20210203/hash.jpg)
 
-![redis console dark](https://imgup.qii404.xyz/github/20200313141656.jpg)
-![redis console](https://imgup.qii404.xyz/github/20200313141530.jpg)
+![redis console dark](https://imgup.qii404.xyz/github/20210203/cli.jpg)
 
 
 ## Feature Log
 
+- 2021-05-03: Stream Support && Cli Command Tips Support
+- 2021-02-28: Connection Color Tag && Search History Support
+- 2021-02-03: Multiple Select\Delete && Msgpack Viewer Support
+- 2020-12-30: Tree View Support!!!
+- 2020-11-03: Binary View Support && SSH Passparse\Timeout Support
 - 2020-09-04: SSH Cluster Support && Extension Commands Support
 - 2020-06-18: SSL/TLS Support!!!
 - 2020-04-28: Page Zoom && Big Key Loads With Scan && Auto Json
@@ -69,7 +72,7 @@ Download latest [AppImage](https://github.com/qishibo/AnotherRedisDesktopManager
 - 2019-01-08: Project Start
 
 
-## Dev Build Setup
+## Dev Build
 
 ### Linux Or Mac
 
@@ -88,7 +91,7 @@ npm install
 npm start
 
 
-# after the previous step is completed, open another tab, build up a desktop client
+# after the previous step is completed to 100%, open another tab, build up a desktop client
 npm run electron
 ```
 
@@ -151,7 +154,6 @@ npm run pack:linux
 
 - Give me a star ⭐!
 - Through [OpenCollective](https://opencollective.com/AnotherRedisDesktopManager)
-- Through [Paypal](https://www.paypal.me/qii404)
 - If you are a Mac user, you can purchase this software from the [app store](https://apps.apple.com/app/id1516451072) to sponsor, and then let the app store automatically update it for you.
 
   [![app store](https://imgup.qii404.xyz/github/download_from_app_store.png)](https://apps.apple.com/app/id1516451072)
