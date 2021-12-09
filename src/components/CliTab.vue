@@ -17,6 +17,8 @@
         class="input-suggestion"
         autocomplete="off"
         v-model="params"
+        :debounce='10'
+        :disabled='subscribeMode'
         :fetch-suggestions="inputSuggestion"
         :placeholder="$t('message.enter_to_exec')"
         :select-when-unmatched="true"
@@ -30,6 +32,8 @@
       </el-autocomplete>
     </el-form-item>
   </el-form>
+
+  <el-button v-if='subscribeMode' @click='stopSubscribe' type='danger' class='stop-subscribe'>Stop Subscribe</el-button>
 </div>
 </template>
 
@@ -46,9 +50,10 @@ export default {
       historyIndex: 0,
       inputSuggestionItems: [],
       multiQueue: null,
+      subscribeMode: false,
     };
   },
-  props: ['client'],
+  props: ['client', 'hotKeyScope'],
   computed: {
     paramsTrim() {
       return this.params.replace(/^\s+|\s+$/g, '');
@@ -62,16 +67,52 @@ export default {
       }
     }
   },
+  created() {
+    this.$bus.$on('changeDb', (client, dbIndex) => {
+      if (!this.anoClient || client.options.connectionName != this.anoClient.options.connectionName) {
+        return;
+      }
+
+      if (this.anoClient.condition.select == dbIndex) {
+        return;
+      }
+
+      this.anoClient.select(dbIndex);
+    });
+  },
   methods: {
     initShow() {
-      this.$refs.cliParams.focus();
-      this.initCliContent();
+      if (!this.client) {
+        return;
+      }
+
+      // copy to another client
+      this.anoClient = this.client.duplicate();
+      // bind subscribe messages
+      this.bindSubscribeMessage();
+
+      this.anoClient.on('ready', () => {
+        !this.anoClient.cliInited && this.initCliContent();
+        this.anoClient.cliInited = true;
+      });
+
+      this.$nextTick(() => {
+        this.$refs.cliParams.focus();
+      });
     },
     initCliContent() {
-      this.content += `> ${this.client.options.connectionName} connected!\n`;
+      this.content += `> ${this.anoClient.options.connectionName} connected!\n`;
       this.scrollToBottom();
     },
+    tabClick() {
+      this.$nextTick(() => {
+        this.$refs.cliParams.focus();
+      });
+    },
     inputSuggestion(input, cb) {
+      // tmp store cb
+      this.cb = cb;
+
       if (!this.paramsTrim) {
         cb([]);
         return;
@@ -109,10 +150,32 @@ export default {
         // cmd without param such as 'hget'
         else {
           if (cmdTips[i].startsWith(cmd)) {
-            items.unshift(cmdTips[i]); 
+            items.unshift(cmdTips[i]);
           }
         }
       }
+    },
+    bindSubscribeMessage() {
+      // bind subscribe message
+      this.anoClient.on('message', (channel, message) => {
+        this.scrollToBottom(`\n${channel}\n${message}`);
+      });
+
+      // bind psubscribe message
+      this.anoClient.on('pmessage', (pattern, channel, message) => {
+        this.scrollToBottom(`\n${pattern}\n${channel}\n${message}`);
+      });
+    },
+    stopSubscribe() {
+      this.subscribeMode = false;
+      const subSet = this.anoClient.condition.subscriber.set;
+
+      if (!subSet) {
+        return;
+      }
+
+      Object.keys(subSet.subscribe).length && this.anoClient.unsubscribe();
+      Object.keys(subSet.psubscribe).length && this.anoClient.punsubscribe();
     },
     consoleExec() {
       const params = this.paramsTrim;
@@ -145,7 +208,7 @@ export default {
           return this.scrollToBottom('(error) ERR EXEC without MULTI');
         }
 
-        this.client.multi(this.multiQueue).execBuffer((err, reply) => {
+        this.anoClient.multi(this.multiQueue).execBuffer((err, reply) => {
           if (err) {
             this.content += `${err}\n`;
           }
@@ -165,8 +228,13 @@ export default {
         return this.scrollToBottom('QUEUED');
       }
 
+      // subscribe command
+      if (/subscribe/.test(paramsArr[0].toLowerCase())) {
+        this.subscribeMode = true;
+      }
+
       // normal command
-      let promise = rawCommand.exec(this.client, paramsArr);
+      let promise = rawCommand.exec(this.anoClient, paramsArr);
 
       // exec error
       if (typeof promise == 'string') {
@@ -188,10 +256,18 @@ export default {
       });
     },
     execFinished(params) {
-      const operate = params[0];
+      const operate = params[0].toLowerCase();
 
-      if (operate.toLowerCase() === 'select' && !isNaN(params[1])) {
-        this.$bus.$emit('changeDb', this.client, params[1]);
+      if (operate === 'select' && !isNaN(params[1])) {
+        this.$bus.$emit('changeDb', this.anoClient, params[1]);
+      }
+
+      // operate may add new key, refresh left key list
+      if (['hmset', 'hset', 'lpush', 'rpush', 'set', 'sadd', 'zadd', 'xadd'].includes(operate)) {
+        this.$bus.$emit('refreshKeyList', this.client, Buffer.from(params[1]), 'add');
+      }
+      if (['del'].includes(operate)) {
+        this.$bus.$emit('refreshKeyList', this.client, Buffer.from(params[1]), 'del');
       }
     },
     scrollToBottom(append = '') {
@@ -236,7 +312,7 @@ export default {
           }
           // string buffer null
           else {
-            append += (isArray ? '' : (this.$util.bufToString(i) + "\n")) + 
+            append += (isArray ? '' : (this.$util.bufToString(i) + "\n")) +
                       this.$util.bufToString(result[i]) + "\n";
           }
         }
@@ -287,10 +363,26 @@ export default {
 
       return false;
     },
+    initShortcut() {
+      // this.$shortcut.bind('ctrl+c', this.hotKeyScope, () => {
+      //   this.params = '';
+      //   this.scrollToBottom('> ^C');
+      //   // close the tips
+      //   (typeof this.cb == 'function') && this.cb([]);
+      // });
+      this.$shortcut.bind('ctrl+l, ⌘+l', this.hotKeyScope, () => {
+        this.content = '';
+      });
+    },
   },
   mounted() {
     this.initShow();
-  }
+    this.initShortcut();
+  },
+  beforeDestroy() {
+    this.anoClient && this.anoClient.quit && this.anoClient.quit();
+    this.$shortcut.deleteScope(this.hotKeyScope);
+  },
 };
 </script>
 
@@ -329,5 +421,11 @@ export default {
   .dark-mode #cli-content {
     color: #f7f7f7;
     background: #324148;
+  }
+
+  .stop-subscribe {
+    position: fixed;
+    right: 30px;
+    bottom: 104px;
   }
 </style>

@@ -15,7 +15,7 @@
             <el-input v-model="editLineItem.score" autocomplete="off"></el-input>
           </el-form-item>
           <el-form-item label="Member">
-            <FormatViewer ref='formatViewer' :content.sync='editLineItem.member'></FormatViewer>
+            <FormatViewer ref='formatViewer' :redisKey="redisKey" :dataMap="editLineItem" :content='editLineItem.member'></FormatViewer>
           </el-form-item>
         </el-form>
 
@@ -44,16 +44,17 @@
         sortable
         resizable
         label="Score"
-        width=150
-        >
+        width=150>
       </el-table-column>
       <el-table-column
-        prop="memberDisplay"
+        prop="member"
         resizable
         sortable
         show-overflow-tooltip
-        label="Member"
-        >
+        label="Member">
+        <template slot-scope="scope">
+          {{ $util.cutString($util.bufToString(scope.row.member), 1000) }}
+        </template>
       </el-table-column>
 
       <el-table-column label="Operation">
@@ -66,8 +67,9 @@
           <i :class='loadingIcon'></i>
         </template>
         <template slot-scope="scope">
-          <el-button type="text" @click="showEditDialog(scope.row)" icon="el-icon-edit" :title="$t('message.edit_line')" circle></el-button>
-          <el-button type="text" @click="deleteLine(scope.row)" icon="el-icon-delete" :title="$t('el.upload.delete')" circle></el-button>
+          <el-button type="text" @click="$util.copyToClipboard(scope.row.member)" icon="el-icon-document" :title="$t('message.copy')"></el-button>
+          <el-button type="text" @click="showEditDialog(scope.row)" icon="el-icon-edit" :title="$t('message.edit_line')"></el-button>
+          <el-button type="text" @click="deleteLine(scope.row)" icon="el-icon-delete" :title="$t('el.upload.delete')"></el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -83,12 +85,15 @@
         {{ $t('message.load_more_keys') }}
       </el-button>
     </div>
+
+    <ScrollToTop></ScrollToTop>
   </div>
 </template>
 
 <script>
 import PaginationTable from '@/components/PaginationTable';
 import FormatViewer from '@/components/FormatViewer';
+import ScrollToTop from '@/components/ScrollToTop';
 
 export default {
   data() {
@@ -109,7 +114,7 @@ export default {
     };
   },
   props: ['client', 'redisKey'],
-  components: {PaginationTable, FormatViewer},
+  components: {PaginationTable, FormatViewer, ScrollToTop},
   computed: {
     dialogTitle() {
       return this.beforeEditItem.member ? this.$t('message.edit_line') :
@@ -138,7 +143,7 @@ export default {
     initTotal() {
       this.client.zcard(this.redisKey).then((reply) => {
         this.total = reply;
-      });
+      }).catch(e => {});
     },
     resetTable() {
       this.zsetData = [];
@@ -157,6 +162,10 @@ export default {
         this.zsetData = resetTable ? zsetData : this.zsetData.concat(zsetData);
         (zsetData.length < this.pageSize) && (this.loadMoreDisable = true);
         this.loadingIcon = '';
+      }).catch(e => {
+        this.loadingIcon = '';
+        this.loadMoreDisable = true;
+        this.$message.error(e.message);
       });
     },
     getListScan() {
@@ -194,6 +203,12 @@ export default {
         this.loadingIcon = '';
         this.loadMoreDisable = true;
       });
+
+      this.scanStream.on('error', e => {
+        this.loadingIcon = '';
+        this.loadMoreDisable = true;
+        this.$message.error(e.message);
+      });
     },
     solveList(list) {
       if (!list) {
@@ -206,7 +221,7 @@ export default {
         zsetData.push({
           score: Number(list[i + 1]),
           member: list[i],
-          memberDisplay: this.$util.bufToString(list[i]),
+          // memberDisplay: this.$util.bufToString(list[i]),
         });
       }
 
@@ -216,9 +231,9 @@ export default {
       return this.filterValue ? `*${this.filterValue}*` : '*';
     },
     openDialog() {
-      this.$nextTick(() => {
-        this.$refs.formatViewer.autoFormat();
-      });
+      // this.$nextTick(() => {
+      //   this.$refs.formatViewer.autoFormat();
+      // });
     },
     showEditDialog(row) {
       this.editLineItem = row;
@@ -229,21 +244,23 @@ export default {
       const key = this.redisKey;
       const client = this.client;
       const before = this.beforeEditItem;
-      const after = this.editLineItem;
 
-      this.editDialog = false;
+      const afterScore = this.editLineItem.score;
+      const afterMember = this.$refs.formatViewer.getContent();
 
-      if (!after.member || isNaN(after.score)) {
+      if (!afterMember || isNaN(afterScore)) {
         return;
       }
 
+      this.editDialog = false;
+
       client.zadd(
         key,
-        after.score,
-        after.member
+        afterScore,
+        afterMember
       ).then((reply) => {
         // edit key member changed
-        if (before.member && !before.member.equals(after.member)) {
+        if (before.member && !before.member.equals(afterMember)) {
           client.zrem(
             key,
             before.member
@@ -260,7 +277,7 @@ export default {
           message: reply ? this.$t('message.add_success') : this.$t('message.modify_success'),
           duration: 1000,
         });
-      });
+      }).catch(e => {this.$message.error(e.message);});
     },
     deleteLine(row) {
       this.$confirm(
@@ -279,7 +296,7 @@ export default {
 
             this.initShow();
           }
-        });
+        }).catch(e => {this.$message.error(e.message);});
       }).catch(() => {});
     },
   },

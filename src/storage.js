@@ -9,6 +9,37 @@ export default {
     settings = JSON.stringify(settings);
     return localStorage.setItem('settings', settings);
   },
+  getFontFamily() {
+    let fontFamily = this.getSetting('fontFamily');
+
+    // set to default font-family
+    if (
+      !fontFamily || !fontFamily.length ||
+      fontFamily.toString() === 'Default Initial'
+    ) {
+      fontFamily = ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Helvetica',
+      'Arial', 'sans-serif','Microsoft YaHei', 'Apple Color Emoji', 'Segoe UI Emoji'];
+    }
+
+    return fontFamily.map(line => {return `"${line}"`}).join(',');
+  },
+  getCustomFormatter(name = '') {
+    let formatters = localStorage.getItem('customFormatters');
+    formatters = formatters ? JSON.parse(formatters) : [];
+
+    if (!name) {
+      return formatters;
+    }
+
+    for (let line of formatters) {
+      if (line.name === name) {
+        return line;
+      }
+    }
+  },
+  saveCustomFormatters(formatters = []) {
+    return localStorage.setItem('customFormatters', JSON.stringify(formatters));
+  },
   addConnection(connection) {
     this.editConnectionByKey(connection, '');
   },
@@ -33,6 +64,11 @@ export default {
     this.updateConnectionName(connection, connections);
     const newKey = this.getConnectionKey(connection, true);
     connection.key = newKey;
+
+    // new added has no order, add it. do not add when edit mode
+    if (!oldKey && isNaN(connection.order)) {
+      connection.order = Object.keys(connections).length;
+    }
 
     connections[newKey] = connection;
     this.setConnections(connections);
@@ -93,11 +129,30 @@ export default {
   },
   sortConnections(connections) {
     connections.sort(function(a, b) {
+      // drag ordered
+      if (!isNaN(a.order) && !isNaN(b.order)) {
+        return parseInt(a.order) <= parseInt(b.order) ? -1 : 1;
+      }
+
+      // no ordered, by key
       if (a.key && b.key) {
         return a.key < b.key ? -1 : 1;
       }
 
       return a.key ? 1 : (b.key ? -1 : 0);
     });
+  },
+  reOrderAndStore(connections = []) {
+    let newConnections = {};
+
+    for (const index in connections) {
+      let connection = connections[index];
+      connection.order = index;
+      newConnections[this.getConnectionKey(connection, true)] = connection;
+    }
+
+    this.setConnections(newConnections);
+
+    return newConnections;
   },
 };

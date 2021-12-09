@@ -2,7 +2,21 @@ import Redis from 'ioredis';
 import tunnelssh from 'tunnel-ssh';
 import vue from '@/main.js';
 import {remote} from 'electron';
+
 const fs = require('fs');
+const { sendCommand } = Redis.prototype;
+
+// redis command log
+Redis.prototype.sendCommand = async function (...options) {
+  const start = performance.now();
+  const response = await sendCommand.call(this, ...options);
+  const cost = performance.now() - start;
+
+  const record = {time: new Date(), connectionName: this.options.connectionName, command: options[0], cost: cost};
+  vue.$bus.$emit('commandLog', record);
+
+  return response;
+}
 
 // fix ioredis hgetall key has been toString()
 Redis.Command.setReplyTransformer("hgetall", (result) => {
@@ -16,17 +30,29 @@ Redis.Command.setReplyTransformer("hgetall", (result) => {
 
 
 export default {
-  createConnection(host, port, auth, config, promise = true) {
-    const options = this.getRedisOptions(host, port, auth, config);
+  createConnection(host, port, auth, config, promise = true, forceStandalone = false) {
+    let options = this.getRedisOptions(host, port, auth, config);
+    let client = null;
+
+    if (forceStandalone) {
+      client = new Redis(options);
+    }
+
+    // sentinel redis
+    else if (config.sentinelOptions) {
+      const sentinelOptions = this.getSentinelOptions(host, port, auth, config);
+      client = new Redis(sentinelOptions);
+    }
+
+    // cluster redis
+    else if (config.cluster) {
+      const clusterOptions = this.getClusterOptions(options, config.natMap ? config.natMap : {});
+      client = new Redis.Cluster([{port, host}], clusterOptions)
+    }
 
     // standalone redis
-    if (!config.cluster) {
-      var client = new Redis(port, host, options);
-    }
-    // cluster redis
     else {
-      const clusterOptions = this.getClusterOptions(options, config.natMap ? config.natMap : {});
-      var client = new Redis.Cluster([{port, host}], clusterOptions)
+      client = new Redis(options);
     }
 
     if (promise) {
@@ -54,6 +80,7 @@ export default {
       keepaliveInterval: 10000,
     };
 
+    const configRaw = JSON.parse(JSON.stringify(config));
     const sshConfigRaw = JSON.parse(JSON.stringify(sshConfig));
 
     const sshPromise = new Promise((resolve, reject) => {
@@ -71,40 +98,59 @@ export default {
 
         const listenAddress = server.address();
 
-        // ssh standalone redis
-        if (!config.cluster) {
-          let client = this.createConnection(listenAddress.address, listenAddress.port, auth, config, false);
-          return resolve(client);
+        // sentinel mode
+        if (configRaw.sentinelOptions) {
+          let client = this.createConnection(listenAddress.address, listenAddress.port, auth, configRaw, false, true);
+
+          client.on('ready', () => {
+            client.call('sentinel', 'get-master-addr-by-name', configRaw.sentinelOptions.masterName).then(reply => {
+              if (!reply) {
+                return reject(new Error(`Master name "${configRaw.sentinelOptions.masterName}" not exists!`));
+              }
+
+              // connect to the master node via ssh
+              this.createClusterSSHTunnels(sshConfigRaw, [{host: reply[0], port: reply[1]}]).then(tunnels => {
+                const sentinelClient = this.createConnection(
+                  tunnels[0].localHost, tunnels[0].localPort, configRaw.sentinelOptions.nodePassword, configRaw, false, true);
+
+                return resolve(sentinelClient);
+              });
+            }).catch(e => {reject(e);}); // sentinel exec failed
+          });
+
+          client.on('error', e => {reject(e);});
         }
 
         // ssh cluster mode
-        const configRaw = JSON.parse(JSON.stringify(config));
-        configRaw.cluster = false;
+        else if (configRaw.cluster) {
+          let client = this.createConnection(listenAddress.address, listenAddress.port, auth, configRaw, false, true);
 
-        // forerunner as a single client
-        let client = this.createConnection(listenAddress.address, listenAddress.port, auth, configRaw, false);
+          client.on('ready', () => {
+            // get all cluster nodes info
+            client.call('cluster', 'nodes').then(reply => {
+              let nodes = this.getClusterNodes(reply);
 
-        client.on('ready', () => {
-          // get all cluster nodes info
-          client.call('cluster', 'nodes', (error, reply) => {
-            if (error) {
-              return reject(error);
-            }
+              // create ssh tunnel for each node
+              this.createClusterSSHTunnels(sshConfigRaw, nodes).then((tunnels) => {
+                configRaw.natMap = this.initNatMap(tunnels);
 
-            let nodes = this.getClusterNodes(reply);
+                // select first line of tunnels to connect
+                const clusterClient = this.createConnection(tunnels[0].localHost, tunnels[0].localPort, auth, configRaw, false);
 
-            // create ssh tunnel for each node
-            this.createClusterSSHTunnels(sshConfigRaw, nodes).then((tunnels) => {
-              configRaw.cluster = true;
-              configRaw.natMap = this.initNatMap(tunnels);
+                resolve(clusterClient);
+              });
+            }).catch(e => {reject(e);});
 
-              // select first line of tunnels to connect
-              const clusterClient = this.createConnection(tunnels[0].localHost, tunnels[0].localPort, auth, configRaw, false);
+          });
 
-              resolve(clusterClient);
-            });
-          })
-        });
+          client.on('error', e => {reject(e);});
+        }
+
+        // ssh standalone redis
+        else {
+          let client = this.createConnection(listenAddress.address, listenAddress.port, auth, configRaw, false);
+          return resolve(client);
+        }
       });
     });
 
@@ -113,11 +159,35 @@ export default {
 
   getRedisOptions(host, port, auth, config) {
     return {
+      // add additional host+port to options for "::1"
+      host: host,
+      port: port,
+
       connectTimeout: 30000,
       retryStrategy: (times) => {return this.retryStragety(times, {host, port})},
       enableReadyCheck: false,
       connectionName: config.connectionName ? config.connectionName : null,
       password: auth,
+      db: config.db ? config.db : undefined,
+      // ACL support
+      username: config.username ? config.username : undefined,
+      tls: config.sslOptions ? this.getTLSOptions(config.sslOptions) : undefined,
+    };
+  },
+
+  getSentinelOptions(host, port, auth, config) {
+    return {
+      sentinels: [{host: host, port: port}],
+      sentinelPassword: auth,
+      password: config.sentinelOptions.nodePassword,
+      name: config.sentinelOptions.masterName,
+      connectTimeout: 30000,
+      retryStrategy: (times) => {return this.retryStragety(times, {host, port})},
+      enableReadyCheck: false,
+      connectionName: config.connectionName ? config.connectionName : null,
+      db: config.db ? config.db : undefined,
+      // ACL support
+      username: config.username ? config.username : undefined,
       tls: config.sslOptions ? this.getTLSOptions(config.sslOptions) : undefined,
     };
   },

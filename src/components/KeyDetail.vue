@@ -8,6 +8,7 @@
         :redisKey="redisKey"
         :keyType="keyType"
         @refreshContent='refreshContent'
+        :hotKeyScope='hotKeyScope'
         class="key-header-info">
       </KeyHeader>
 
@@ -17,6 +18,7 @@
         :is="componentName"
         :client='client'
         :redisKey="redisKey"
+        :hotKeyScope='hotKeyScope'
         class="key-content-container">
       </component>
     </el-container>
@@ -31,15 +33,16 @@ import KeyContentSet from '@/components/KeyContentSet';
 import KeyContentZset from '@/components/KeyContentZset';
 import KeyContentList from '@/components/KeyContentList';
 import KeyContentStream from '@/components/KeyContentStream';
+import KeyContentReJson from '@/components/KeyContentReJson';
 
 export default {
   data() {
     return {};
   },
-  props: ['client', 'redisKey', 'keyType'],
+  props: ['client', 'redisKey', 'keyType', 'hotKeyScope'],
   components: {
     KeyHeader, KeyContentString, KeyContentHash, KeyContentSet, KeyContentZset,
-    KeyContentList, KeyContentStream,
+    KeyContentList, KeyContentStream, KeyContentReJson
   },
   computed: {
     componentName() {
@@ -55,6 +58,8 @@ export default {
         set   : 'KeyContentSet',
         list  : 'KeyContentList',
         stream  : 'KeyContentStream',
+        stream  : 'KeyContentStream',
+        'ReJSON-RL': 'KeyContentReJson',
       };
 
       if (map[keyType]) {
@@ -73,6 +78,8 @@ export default {
         }
 
         this.$refs.keyContent && this.$refs.keyContent.initShow();
+      }).catch(e => {
+        this.$message.error('Exists Error: ' + e.message);
       });
     },
   },

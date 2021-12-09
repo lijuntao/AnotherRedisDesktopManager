@@ -163,7 +163,7 @@ export default {
             else {
               this.$message.error(this.$t('message.delete_failed'));
             }
-          });
+          }).catch(e => {this.$message.error(e.message);});
           break;
         }
         // select multiple
@@ -251,7 +251,7 @@ export default {
       }
     },
     treeRefresh(nodes) {
-      // this.ztreeObj && this.ztreeObj.destroy();
+      this.ztreeObj && this.ztreeObj.destroy();
       // folder keep in front
       this.$util.sortNodes(nodes);
 
@@ -261,14 +261,39 @@ export default {
         nodes
       );
     },
+    reCheckNodes(nodes = []) {
+      if (!nodes || !nodes.length) {
+        return;
+      }
+
+      for (let node of nodes) {
+        // skip folder node
+        if (node.children) {
+          continue;
+        }
+
+        // node to be checked
+        // const checkedNode = this.ztreeObj.getNodeByTId(node.tId);
+        // if the tId changes, use this line to find previous checked node
+        const checkedNode = this.ztreeObj.getNodesByParam('name', node.name)[0];
+        checkedNode && this.ztreeObj.checkNode(checkedNode, true, true);
+      }
+    },
   },
   watch: {
     keyList(newList) {
+      // backup the previous checked nodes
+      let checkedNodes = [];
+      this.ztreeObj && (checkedNodes = this.ztreeObj.getCheckedNodes(true));
+
       this.treeRefresh(
-        this.separator ? 
+        this.separator ?
         this.$util.keysToTree(newList, this.separator, this.openStatus) :
         this.$util.keysToList(newList)
       );
+
+      // recheck checked nodes
+      this.reCheckNodes(checkedNodes);
 
       // only 1 key such as extract search, expand all
       if (newList.length <= 1) {
@@ -372,6 +397,8 @@ export default {
 /*folder keys count*/
 .ztree .key-list-count {
   color: #848a90;
+  float: right;
+  line-height: 22px;
 }
 .dark-mode .ztree .key-list-count {
   color: #a3a6ad;

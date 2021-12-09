@@ -16,7 +16,7 @@
           </el-form-item>
 
           <el-form-item label="Value">
-            <FormatViewer ref='formatViewer' :content.sync='editLineItem.value'></FormatViewer>
+            <FormatViewer ref='formatViewer' :redisKey="redisKey" :dataMap="editLineItem" :content='editLineItem.value'></FormatViewer>
           </el-form-item>
         </el-form>
 
@@ -41,20 +41,24 @@
         width="150">
       </el-table-column>
       <el-table-column
-        prop="keyDisplay"
+        prop="key"
         sortable
         resizable
         label="Key"
-        width=150
-        >
+        width=150>
+        <template slot-scope="scope">
+          {{ $util.bufToString(scope.row.key) }}
+        </template>
       </el-table-column>
       <el-table-column
-        prop="valueDisplay"
+        prop="value"
         resizable
         sortable
         show-overflow-tooltip
-        label="Value"
-        >
+        label="Value">
+        <template slot-scope="scope">
+          {{ $util.cutString($util.bufToString(scope.row.value), 1000) }}
+        </template>
       </el-table-column>
 
       <el-table-column label="Operation">
@@ -67,8 +71,9 @@
           <i :class='loadingIcon'></i>
         </template>
         <template slot-scope="scope">
-          <el-button type="text" @click="showEditDialog(scope.row)" icon="el-icon-edit" :title="$t('message.edit_line')" circle></el-button>
-          <el-button type="text" @click="deleteLine(scope.row)" icon="el-icon-delete" :title="$t('el.upload.delete')" circle></el-button>
+          <el-button type="text" @click="$util.copyToClipboard(scope.row.value)" icon="el-icon-document" :title="$t('message.copy')"></el-button>
+          <el-button type="text" @click="showEditDialog(scope.row)" icon="el-icon-edit" :title="$t('message.edit_line')"></el-button>
+          <el-button type="text" @click="deleteLine(scope.row)" icon="el-icon-delete" :title="$t('el.upload.delete')"></el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -84,6 +89,8 @@
         {{ $t('message.load_more_keys') }}
       </el-button>
     </div>
+
+    <ScrollToTop></ScrollToTop>
   </div>
 </template>
 
@@ -91,6 +98,7 @@
 import PaginationTable from '@/components/PaginationTable';
 import FormatViewer from '@/components/FormatViewer';
 import InputBinary from '@/components/InputBinary';
+import ScrollToTop from '@/components/ScrollToTop';
 
 export default {
   data() {
@@ -109,7 +117,7 @@ export default {
       loadMoreDisable: false,
     };
   },
-  components: {PaginationTable, FormatViewer, InputBinary},
+  components: {PaginationTable, FormatViewer, InputBinary, ScrollToTop},
   props: ['client', 'redisKey'],
   computed: {
     dialogTitle() {
@@ -137,7 +145,7 @@ export default {
     initTotal() {
       this.client.hlen(this.redisKey).then((reply) => {
         this.total = reply;
-      });
+      }).catch(e => {});
     },
     resetTable() {
       this.hashData = [];
@@ -160,9 +168,9 @@ export default {
         for (let i = 0; i < reply.length; i += 2) {
           hashData.push({
             key: reply[i],
-            keyDisplay: this.$util.bufToString(reply[i]),
+            // keyDisplay: this.$util.bufToString(reply[i]),
             value: reply[i + 1],
-            valueDisplay: this.$util.bufToString(reply[i + 1]),
+            // valueDisplay: this.$util.bufToString(reply[i + 1]),
           });
         }
 
@@ -179,14 +187,20 @@ export default {
         this.loadingIcon = '';
         this.loadMoreDisable = true;
       });
+
+      this.scanStream.on('error', e => {
+        this.loadingIcon = '';
+        this.loadMoreDisable = true;
+        this.$message.error(e.message);
+      });
     },
     getScanMatch() {
       return this.filterValue ? `*${this.filterValue}*` : '*';
     },
     openDialog() {
-      this.$nextTick(() => {
-        this.$refs.formatViewer.autoFormat();
-      });
+      // this.$nextTick(() => {
+      //   this.$refs.formatViewer.autoFormat();
+      // });
     },
     showEditDialog(row) {
       this.editLineItem = row;
@@ -197,21 +211,23 @@ export default {
       const key = this.redisKey;
       const client = this.client;
       const before = this.beforeEditItem;
-      const after = this.editLineItem;
 
-      this.editDialog = false;
+      const afterKey = this.editLineItem.key;
+      const afterValue = this.$refs.formatViewer.getContent();
 
-      if (!after.key || !after.value) {
+      if (!afterKey || !afterValue) {
         return;
       }
 
+      this.editDialog = false;
+
       client.hset(
         key,
-        after.key,
-        after.value
+        afterKey,
+        afterValue
       ).then((reply) => {
         // edit key && key changed
-        if (before.key && !before.key.equals(after.key)) {
+        if (before.key && !before.key.equals(afterKey)) {
           client.hdel(
             key,
             before.key
@@ -229,7 +245,7 @@ export default {
           message: reply ? this.$t('message.add_success') : this.$t('message.modify_success'),
           duration: 1000,
         });
-      });
+      }).catch(e => {this.$message.error(e.message);});
     },
     deleteLine(row) {
       this.$confirm(
@@ -248,7 +264,7 @@ export default {
 
             this.initShow();
           }
-        });
+        }).catch(e => {this.$message.error(e.message);});
       }).catch(() => {});
     },
   },

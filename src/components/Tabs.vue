@@ -1,6 +1,5 @@
 <template>
-<div>
-  <el-tabs v-model="selectedTabName" type="card" closable @tab-remove="removeTab">
+  <el-tabs class='tabs-container' v-model="selectedTabName" type="card" closable @tab-remove="removeTab" @tab-click="tabClick">
     <el-tab-pane
       v-for="(item) in tabs"
       :key="item.name"
@@ -9,13 +8,13 @@
         <i :class="iconNameByComponent(item.component)"></i>
         <span>{{ item.label }}</span>
       </span>
-      <Status :client='item.client' v-if="item.component === 'status'"></Status>
-      <CliTab :client='item.client' v-else-if="item.component === 'cli'"></CliTab>
-      <DeleteBatch :client='item.client' v-else-if="item.component === 'delbatch'" :rule="item.rule"></DeleteBatch>
-      <KeyDetail :client='item.client' v-else :redisKey="item.redisKey" :keyType="item.keyType"></KeyDetail>
+
+      <Status v-if="item.component === 'status'" :client='item.client' class='tab-content-wrappe' :hotKeyScope='item.name'></Status>
+      <CliTab v-else-if="item.component === 'cli'" :client='item.client' class='tab-content-wrappe' :hotKeyScope='item.name'></CliTab>
+      <DeleteBatch v-else-if="item.component === 'delbatch'" :client='item.client' :rule="item.rule" class='tab-content-wrappe' :hotKeyScope='item.name'></DeleteBatch>
+      <KeyDetail v-else :client='item.client' :redisKey="item.redisKey" :keyType="item.keyType" class='tab-content-wrappe' :hotKeyScope='item.name'></KeyDetail>
     </el-tab-pane>
   </el-tabs>
-</div>
 </template>
 
 <script>
@@ -92,6 +91,16 @@ export default {
 
       nextSelectTab && (this.selectedTabName = nextSelectTab.name);
       this.tabs = this.tabs.filter(tab => tab.name !== removeName);
+
+      this.$shortcut.deleteScope(removeName);
+      this.$shortcut.setScope(this.selectedTabName);
+    },
+    tabClick(tab, event) {
+      this.$shortcut.setScope(this.selectedTabName);
+
+      if (tab.$children && tab.$children[0] && (typeof tab.$children[0].tabClick == 'function')) {
+        tab.$children[0].tabClick();
+      };
     },
     addStatusTab(client, tabName, newTab = true) {
       const newTabItem = {
@@ -140,6 +149,8 @@ export default {
         }
 
         this.addTab(this.initKeyTabItem(client, key, type), newTab);
+      }).catch(e => {
+        this.$message.error('Type Error: ' + e.message);
       });
     },
     initKeyTabItem(client, key, type) {
@@ -165,6 +176,7 @@ export default {
       // if exists, select directly
       if (exists) {
         this.selectedTabName = newTabItem.name;
+        this.$shortcut.setScope(this.selectedTabName);
         return;
       }
 
@@ -193,6 +205,7 @@ export default {
       }
 
       this.selectedTabName = newTabItem.name;
+      this.$shortcut.setScope(this.selectedTabName);
     },
     iconNameByComponent(component) {
       const map = {
@@ -205,6 +218,27 @@ export default {
 
       return icon ? icon : 'fa fa-key';
     },
+    initShortcut() {
+      this.$shortcut.bind('ctrl+w, ⌘+w', () => {
+        const closeWindow = !this.tabs.length;
+        this.removeTab(this.selectedTabName);
+
+        return closeWindow;
+      });
+    },
+  },
+  mounted() {
+    this.initShortcut();
   },
 };
 </script>
+
+<style type="text/css">
+  .tab-content-wrappe {
+    height: calc(100vh - 100px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-right: 7px;
+    padding-bottom: 20px;
+  }
+</style>

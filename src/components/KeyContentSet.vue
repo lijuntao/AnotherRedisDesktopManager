@@ -12,7 +12,7 @@
       <el-dialog :title="dialogTitle" :visible.sync="editDialog" @open='openDialog' :close-on-click-modal='false'>
         <el-form>
           <el-form-item label="Value">
-            <FormatViewer ref='formatViewer' :content.sync='editLineItem.value'></FormatViewer>
+            <FormatViewer ref='formatViewer' :redisKey="redisKey" :dataMap="editLineItem" :content='editLineItem.value'></FormatViewer>
           </el-form-item>
         </el-form>
 
@@ -37,11 +37,14 @@
         width="150">
       </el-table-column>
       <el-table-column
-        prop="valueDisplay"
+        prop="value"
         resizable
         sortable
         show-overflow-tooltip
         label="Value">
+        <template slot-scope="scope">
+          {{ $util.cutString($util.bufToString(scope.row.value), 1000) }}
+        </template>
       </el-table-column>
 
       <el-table-column label="Operation">
@@ -54,8 +57,9 @@
           <i :class='loadingIcon'></i>
         </template>
         <template slot-scope="scope">
-          <el-button type="text" @click="showEditDialog(scope.row)" icon="el-icon-edit" :title="$t('message.edit_line')" circle></el-button>
-          <el-button type="text" @click="deleteLine(scope.row)" icon="el-icon-delete" :title="$t('el.upload.delete')" circle></el-button>
+          <el-button type="text" @click="$util.copyToClipboard(scope.row.value)" icon="el-icon-document" :title="$t('message.copy')"></el-button>
+          <el-button type="text" @click="showEditDialog(scope.row)" icon="el-icon-edit" :title="$t('message.edit_line')"></el-button>
+          <el-button type="text" @click="deleteLine(scope.row)" icon="el-icon-delete" :title="$t('el.upload.delete')"></el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -71,12 +75,15 @@
         {{ $t('message.load_more_keys') }}
       </el-button>
     </div>
+
+    <ScrollToTop></ScrollToTop>
   </div>
 </template>
 
 <script>
 import PaginationTable from '@/components/PaginationTable';
 import FormatViewer from '@/components/FormatViewer';
+import ScrollToTop from '@/components/ScrollToTop';
 
 export default {
   data() {
@@ -96,7 +103,7 @@ export default {
     };
   },
   props: ['client', 'redisKey'],
-  components: {PaginationTable, FormatViewer},
+  components: {PaginationTable, FormatViewer, ScrollToTop},
   computed: {
     dialogTitle() {
       return this.beforeEditItem.value ? this.$t('message.edit_line') :
@@ -123,7 +130,7 @@ export default {
     initTotal() {
       this.client.scard(this.redisKey).then((reply) => {
         this.total = reply;
-      });
+      }).catch(e => {});
     },
     resetTable() {
       this.setData = [];
@@ -146,7 +153,7 @@ export default {
         for (const i of reply) {
           setData.push({
             value: i,
-            valueDisplay: this.$util.bufToString(i),
+            // valueDisplay: this.$util.bufToString(i),
           });
         }
 
@@ -163,14 +170,20 @@ export default {
         this.loadingIcon = '';
         this.loadMoreDisable = true;
       });
+
+      this.scanStream.on('error', e => {
+        this.loadingIcon = '';
+        this.loadMoreDisable = true;
+        this.$message.error(e.message);
+      });
     },
     getScanMatch() {
       return this.filterValue ? `*${this.filterValue}*` : '*';
     },
     openDialog() {
-      this.$nextTick(() => {
-        this.$refs.formatViewer.autoFormat();
-      });
+      // this.$nextTick(() => {
+      //   this.$refs.formatViewer.autoFormat();
+      // });
     },
     showEditDialog(row) {
       this.editLineItem = row;
@@ -181,17 +194,22 @@ export default {
       const key = this.redisKey;
       const client = this.client;
       const before = this.beforeEditItem;
-      const after = this.editLineItem;
+      const afterValue = this.$refs.formatViewer.getContent();
 
-      this.editDialog = false;
-
-      if (!after.value || (before.value && before.value.equals(after.value))) {
+      if (!afterValue) {
         return;
       }
 
+      // not changed
+      if (before.value && before.value.equals(afterValue)) {
+        return this.editDialog = false;
+      }
+
+      this.editDialog = false;
+
       client.sadd(
         key,
-        after.value
+        afterValue
       ).then((reply) => {
         // add success
         if (reply === 1) {
@@ -222,7 +240,7 @@ export default {
             duration: 1000,
           });
         }
-      });
+      }).catch(e => {this.$message.error(e.message);});
     },
     deleteLine(row) {
       this.$confirm(
@@ -241,7 +259,7 @@ export default {
 
             this.initShow();
           }
-        });
+        }).catch(e => {this.$message.error(e.message);});
       }).catch(() => {});
     },
   },

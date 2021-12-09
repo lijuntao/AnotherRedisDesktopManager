@@ -31,7 +31,7 @@ export default {
       loadingDelete: false,
     };
   },
-  props: ['client', 'rule'],
+  props: ['client', 'rule', 'hotKeyScope'],
   computed: {
     allKeys() {
       let dict = this.specifyKeys;
@@ -121,14 +121,28 @@ export default {
             else {
               this.$message.error(this.$t('message.delete_failed'));
             }
+          }).catch(e => {
+            this.loadingScan = false;
+            this.loadingDelete = false;
+            this.$message.error(e.message);
           });
         }
       }
     },
+    initShortcut() {
+      this.$shortcut.bind('ctrl+r, ⌘+r, f5', this.hotKeyScope, () => {
+        this.initKeys();
+        return false;
+      });
+    },
   },
   mounted() {
     this.initKeys();
-  }
+    this.initShortcut();
+  },
+  beforeDestroy() {
+    this.$shortcut.deleteScope(this.hotKeyScope);
+  },
 };
 </script>
 
